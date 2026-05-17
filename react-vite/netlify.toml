@@ -1,0 +1,39 @@
+# Netlify deploy config for the React/Vite example.
+#
+# The build runs `npm install` (not `npm ci`) then `npm run build` and
+# publishes the static bundle from `dist/`. No serverless functions, no edge
+# functions — this is a pure SPA that does all its work in the browser via
+# WebCodecs / WASM.
+
+[build]
+  # Delete the lockfile before installing. npm has a known bug (npm/cli#4828)
+  # where optional platform-specific dependencies — Rollup's
+  # `@rollup/rollup-linux-x64-gnu` is the famous case — aren't installed when
+  # a `package-lock.json` generated on one OS is consumed by `npm ci` on
+  # another. Wiping the lockfile and running `npm install` fresh on Linux
+  # forces npm to resolve the correct optional binary for the build host.
+  command = "rm -f package-lock.json && npm install --no-audit --no-fund && npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# Cache Vite's hashed asset bundle aggressively. `index.html` stays uncached
+# so deploys roll out immediately; everything under /assets/ is content-hashed
+# in the filename and safe to cache for a year.
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+# Single-page-app fallback. The demo doesn't use client-side routing today,
+# but this keeps deep-link refreshes working if you ever add it.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
